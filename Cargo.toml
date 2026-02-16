@@ -1,6 +1,15 @@
 [package]
 name = "biopath"
+description = "Shortest paths in biological overlap graphs with or without indexing."
+authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
+license = "BSD-2-Clause"
+repository = "https://github.com/sebschmi/biopath"
 version = "0.1.0"
+
 edition = "2024"
 
 [dependencies]
+clap = { version = "4.5.58", features = ["derive"] }
+log = "0.4.29"
+simplelog = "0.12.2"
+anyhow = "1.0.101"
