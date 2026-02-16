@@ -1,0 +1,136 @@
+name: Tests and Lints
+
+on:
+  push:
+  pull_request:
+
+env:
+  RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
+
+jobs:
+  rust_check:
+    name: Rust check
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo check
+        run: cargo check --all-targets --all-features
+
+  rust_format:
+    name: Rust format
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: 
+          components: rustfmt
+
+      - name: cargo format
+        uses: actions-rust-lang/rustfmt@v1
+
+  rust_check_default_features:
+    name: Rust check with default features
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo check
+        run: cargo check --lib
+
+  rust_lint:
+    name: Rust lint
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+      matrix:
+        toolchain: [null, "stable", "beta", "nightly"]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: 
+          components: clippy
+          toolchain: ${{matrix.toolchain}}
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features
+
+  rust_test:
+    name: Rust test
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo test
+        run: cargo test --all-features
+
+  rust_doc:
+    name: Rust doc
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo doc
+        run: cargo doc --all-features
+
+  rust_check_os_compatiblity:
+    name: Rust check
+    runs-on: ${{ matrix.runner }}
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+      matrix:
+        runner: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo check
+        run: cargo check --all-targets --all-features
