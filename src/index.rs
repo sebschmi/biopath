@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use bidirected_adjacency_array::{
@@ -75,6 +75,8 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
     {
         let mut file = File::create(&cli.index_out)
             .with_context(|| format!("Failed to create index output file {:?}", cli.index_out))?;
+        file.write_all(&[u8::try_from(std::mem::size_of::<IndexType>() * 8).unwrap()])
+            .with_context(|| format!("Failed to write index header to file {:?}", cli.index_out))?;
         overlay
             .write_binary(&mut file)
             .with_context(|| format!("Failed to write index to file {:?}", cli.index_out))?;
