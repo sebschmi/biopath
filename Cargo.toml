@@ -9,10 +9,21 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# CLI
 clap = { version = "4.5.59", features = ["derive"] }
 log = "0.4.29"
 simplelog = "0.12.2"
 anyhow = "1.0.101"
+
+# Data structures
 spqr-shortest-path-index = { version = "0.1.0", features = ["binary-io"] }
 bidirected-adjacency-array = "0.2.6"
-spqr-tree = "0.2.5"
+spqr-tree = { version = "0.2.8" }
+
+# Serde
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+toml = "1.0.2"
+
+# Other
+itertools = "0.14.0"
