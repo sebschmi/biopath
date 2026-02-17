@@ -260,7 +260,7 @@ where
             for (target, distance) in query.targets.iter().zip(&query.distances) {
                 write!(
                     writer,
-                    "{}\t{}\t{}\t{}",
+                    "\t{}\t{}\t{}\t{}",
                     graph.node_name(target.node().into_bidirected()),
                     target.offset(),
                     if target.node().is_forward() { "+" } else { "-" },
@@ -422,7 +422,7 @@ where
             for (target, distance) in query.targets.iter().zip(&query.distances) {
                 write!(
                     writer,
-                    "{}\t{}\t{}\t{}",
+                    "\t{}\t{}\t{}\t{}",
                     graph.node_name(target.node().into_bidirected()),
                     target.offset(),
                     if target.node().is_forward() { "+" } else { "-" },
