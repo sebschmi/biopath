@@ -1,20 +1,32 @@
 use std::{
-    io::{BufRead, BufReader, Read},
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
     path::PathBuf,
+    str::FromStr,
 };
 
 use anyhow::Context;
 use bidirected_adjacency_array::{
     graph::BidirectedAdjacencyArray,
-    index::GraphIndexInteger,
+    index::{DirectedNodeIndex, GraphIndexInteger},
     io::gfa1::{PlainGfaEdgeData, PlainGfaNodeData},
 };
 use clap::Parser;
-use log::{LevelFilter, error, info};
-use spqr_shortest_path_index::spqr_decomposition_overlay::SPQRDecompositionOverlay;
-use spqr_tree::decomposition::SPQRDecomposition;
+use indicatif::ProgressBar;
+use itertools::Itertools;
+use log::{LevelFilter, info};
+use spqr_shortest_path_index::{
+    location::{GfaLocation, GfaNodeOffset},
+    location_index::{multi::MultiGfaLocationIndex, single::SingleGfaLocationIndex},
+    path::OptionalGfaPathLength,
+    spqr_decomposition_overlay::{SPQRDecompositionOverlay, dijkstra::OverlayDijkstra},
+};
+use spqr_tree::{decomposition::SPQRDecomposition, graph::StaticGraph};
 
-use crate::io_util::{open_optionally_compressed_file, read_optionally_compressed_file};
+use crate::io_util::{
+    open_optionally_compressed_file, read_optionally_compressed_file,
+    write_optionally_compressed_file,
+};
 
 #[derive(Parser)]
 pub struct Cli {
@@ -32,6 +44,23 @@ pub struct Cli {
     /// The index file.
     #[clap(long)]
     index_in: PathBuf,
+
+    /// A tab-separated file containing the queries to run.
+    /// The columns are `source_node_id`, `source_orientation`, `source_offset`, `target_node_id`, `target_orientation`, `target_offset`.
+    /// The last three columns can be repeated to specify multiple target locations for the same source.
+    #[clap(long)]
+    query_in: PathBuf,
+
+    /// The output file for the query results.
+    /// Contains a copy of the input rows with and additional column for the `distance` for each target.
+    #[clap(long)]
+    query_out: PathBuf,
+}
+
+struct Query<IndexType> {
+    source: GfaLocation<IndexType>,
+    targets: Vec<GfaLocation<IndexType>>,
+    distances: Vec<OptionalGfaPathLength<IndexType>>,
 }
 
 pub fn run(cli: Cli) -> anyhow::Result<()> {
@@ -63,10 +92,13 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
     }
 }
 
-fn run_with_word_size<IndexType: GraphIndexInteger>(
+fn run_with_word_size<IndexType: GraphIndexInteger + FromStr>(
     cli: Cli,
     index_file_reader: impl BufRead,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    <IndexType as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
     info!("Reading graph from GFA file {:?}", cli.graph_gfa_in);
     let graph = read_optionally_compressed_file(&cli.graph_gfa_in, |reader| {
         BidirectedAdjacencyArray::<IndexType, PlainGfaNodeData, PlainGfaEdgeData>::read_gfa1(reader)
@@ -79,6 +111,12 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(
         graph.edge_count(),
     );
 
+    info!("Building node name index");
+    let node_name_index: HashMap<_, _> = graph
+        .node_indices()
+        .map(|node_index| (graph.node_name(node_index), node_index))
+        .collect();
+
     info!("Reading SPQR decomposition from file {:?}", cli.spqr_in);
     let spqr_decomposition = read_optionally_compressed_file(&cli.spqr_in, |reader| {
         SPQRDecomposition::read_plain_spqr(&graph, reader)
@@ -87,10 +125,137 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(
     .with_context(|| format!("Failed to read SPQR file: {:?}", cli.spqr_in))?;
 
     info!("Reading index from file {:?}", cli.index_in);
-    let _overlay =
+    let overlay =
         SPQRDecompositionOverlay::read_binary(&graph, &spqr_decomposition, index_file_reader)
             .with_context(|| format!("Failed to read index file: {:?}", cli.index_in))?;
 
-    error!("Query not yet implemented");
+    info!("Reading queries from file {:?}", cli.query_in);
+    let mut queries = read_optionally_compressed_file(&cli.query_in, |reader| {
+        let mut queries = Vec::new();
+        for line in reader.lines() {
+            let line = line.with_context(|| {
+                format!("Failed to read line from query file: {:?}", cli.query_in)
+            })?;
+
+            let mut source = None;
+            let mut targets = Vec::new();
+
+            let columns = line.trim().split('\t').collect_vec();
+            for column in columns.chunks(3) {
+                if column.len() != 3 {
+                    anyhow::bail!(
+                        "Invalid query line in file {:?}: expected a number of columns that is divisible by 3, got {}",
+                        cli.query_in,
+                        columns.len()
+                    );
+                }
+
+                let node_name = column[0];
+                let forward = match column[1] {
+                    "+" => true,
+                    "-" => false,
+                    _ => anyhow::bail!(
+                        "Invalid query line in file {:?}: expected orientation to be either '+' or '-', got '{}'",
+                        cli.query_in,
+                        column[1]
+                    ),
+                };
+                let offset = column[2].parse::<IndexType>().map(GfaNodeOffset::from_raw).with_context(|| {
+                    format!(
+                        "Invalid query line in file {:?}: failed to parse offset '{}'",
+                        cli.query_in,
+                        column[2],
+                    )
+                })?;
+
+                let location = GfaLocation::new(DirectedNodeIndex::from_bidirected(node_name_index[node_name], forward), offset);
+                if source.is_none() {
+                    source = Some(location);
+                } else {
+                    targets.push(location);
+                }
+            }
+
+            if source.is_none() || targets.is_empty() {
+                anyhow::bail!(
+                    "Invalid query line in file {:?}: expected at least one source and one target location, got line '{}'",
+                    cli.query_in,
+                    line
+                );
+            }
+
+            queries.push(Query { source: source.unwrap(), targets, distances: Vec::new() });
+        }
+
+        Ok(queries)
+    })
+    .with_context(|| format!("Failed to read query file: {:?}", cli.query_in))?;
+
+    info!("Initialising overlay Dijkstra data structures");
+    let mut dijkstra = OverlayDijkstra::new(&overlay);
+
+    info!("Executing queries");
+    let progress_bar =
+        ProgressBar::new(queries.len().try_into().unwrap()).with_message("Executing queries");
+
+    for query in &mut queries {
+        let paths = if query.targets.len() == 1 {
+            dijkstra.shortest_paths(
+                query.source,
+                &SingleGfaLocationIndex::new_target(query.targets[0]),
+            )
+        } else {
+            dijkstra.shortest_paths(
+                query.source,
+                &MultiGfaLocationIndex::new_targets(&graph, query.targets.iter().copied()),
+            )
+        };
+        query.distances = query
+            .targets
+            .iter()
+            .map(|&target| paths.get(&target).map(|path| path.length()).into())
+            .collect();
+
+        progress_bar.inc(1);
+    }
+
+    progress_bar.finish_and_clear();
+
+    info!("Writing query results to file {:?}", cli.query_out);
+    write_optionally_compressed_file(&cli.query_out, |writer| {
+        for query in &queries {
+            write!(
+                writer,
+                "{}\t{}\t{}",
+                graph.node_name(query.source.node().into_bidirected()),
+                query.source.offset(),
+                if query.source.node().is_forward() {
+                    "+"
+                } else {
+                    "-"
+                },
+            )?;
+
+            for (target, distance) in query.targets.iter().zip(&query.distances) {
+                write!(
+                    writer,
+                    "{}\t{}\t{}\t{}",
+                    graph.node_name(target.node().into_bidirected()),
+                    target.offset(),
+                    if target.node().is_forward() { "+" } else { "-" },
+                    distance
+                        .into_option()
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| "None".to_string()),
+                )?;
+            }
+
+            writeln!(writer)?;
+        }
+        Ok(())
+    })
+    .with_context(|| format!("Failed to write query results to file: {:?}", cli.query_out))?;
+
     Ok(())
 }
