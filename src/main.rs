@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod index;
+mod io_util;
 mod query;
 mod statistics;
 

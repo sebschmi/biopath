@@ -2,13 +2,17 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use bidirected_adjacency_array::{
-    graph::BidirectedAdjacencyArray, index::GraphIndexInteger, io::gfa1::read_gfa1,
+    graph::BidirectedAdjacencyArray,
+    index::GraphIndexInteger,
+    io::gfa1::{PlainGfaEdgeData, PlainGfaNodeData},
 };
 use clap::Parser;
 use itertools::Itertools;
 use log::{LevelFilter, info};
 use serde::{Deserialize, Serialize};
-use spqr_tree::io::plain_spqr_file::read_plain_spqr;
+use spqr_tree::decomposition::SPQRDecomposition;
+
+use crate::io_util::read_optionally_compressed_file;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -70,25 +74,18 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
 
 fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<()> {
     info!("Reading graph from GFA file {:?}", cli.graph_gfa_in);
-    let graph: BidirectedAdjacencyArray<IndexType, _, _> = {
-        let mut file = File::open(&cli.graph_gfa_in)
-            .with_context(|| format!("Failed to open GFA file {:?}", cli.graph_gfa_in))?;
-        read_gfa1(&mut file)
-            .with_context(|| format!("Failed to parse GFA file {:?}", cli.graph_gfa_in))?
-    };
-    info!(
-        "Graph has {} nodes and {} edges",
-        graph.node_count(),
-        graph.edge_count(),
-    );
+    let graph = read_optionally_compressed_file(&cli.graph_gfa_in, |reader| {
+        BidirectedAdjacencyArray::<IndexType, PlainGfaNodeData, PlainGfaEdgeData>::read_gfa1(reader)
+            .with_context(|| format!("Failed to parse GFA file {:?}", cli.graph_gfa_in))
+    })
+    .with_context(|| format!("Failed to read GFA file: {:?}", cli.graph_gfa_in))?;
 
     info!("Reading SPQR decomposition from file {:?}", cli.spqr_in);
-    let spqr_decomposition = {
-        let mut file = File::open(&cli.spqr_in)
-            .with_context(|| format!("Failed to open SPQR decomposition file {:?}", cli.spqr_in))?;
-        read_plain_spqr(&graph, &mut file)
-            .with_context(|| format!("Failed to parse SPQR decomposition file {:?}", cli.spqr_in))?
-    };
+    let spqr_decomposition = read_optionally_compressed_file(&cli.spqr_in, |reader| {
+        SPQRDecomposition::read_plain_spqr(&graph, reader)
+            .with_context(|| format!("Failed to parse SPQR decomposition file {:?}", cli.spqr_in))
+    })
+    .with_context(|| format!("Failed to read SPQR file: {:?}", cli.spqr_in))?;
 
     info!("Collecting statistics");
     let statistics = Statistics {

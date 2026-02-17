@@ -16,9 +16,9 @@ simplelog = "0.12.2"
 anyhow = "1.0.101"
 
 # Data structures
-spqr-shortest-path-index = { version = "0.1.0", features = ["binary-io"] }
-bidirected-adjacency-array = "0.2.6"
-spqr-tree = { version = "0.2.8" }
+spqr-shortest-path-index = { version = "0.1.1", features = ["binary-io"] }
+bidirected-adjacency-array = "0.3.0"
+spqr-tree = { version = "0.3.2" }
 
 # Serde
 serde = { version = "1.0.228", features = ["derive"] }
@@ -27,3 +27,4 @@ toml = "1.0.2"
 
 # Other
 itertools = "0.14.0"
+flate2 = "1.1.9"

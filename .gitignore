@@ -2,3 +2,5 @@
 *.index
 *.toml
 *.json
+*.gz
+*.gzip
