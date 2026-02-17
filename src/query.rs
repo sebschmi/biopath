@@ -236,7 +236,7 @@ where
     progress_bar.finish_and_clear();
 
     info!(
-        "Finished executing {} queries in {:.2?} ({:.0}us per query)",
+        "Finished executing {} queries in {:.2?} ({:.0}µs per query)",
         queries.len(),
         end_time - start_time,
         (end_time - start_time).as_secs_f64() / queries.len() as f64 * 1_000_000.0
@@ -398,7 +398,7 @@ where
     progress_bar.finish_and_clear();
 
     info!(
-        "Finished executing {} queries in {:.2?} ({:.0}us per query)",
+        "Finished executing {} queries in {:.2?} ({:.0}µs per query)",
         queries.len(),
         end_time - start_time,
         (end_time - start_time).as_secs_f64() / queries.len() as f64 * 1_000_000.0
