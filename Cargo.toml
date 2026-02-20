@@ -4,7 +4,7 @@ description = "Shortest paths in biological overlap graphs with or without index
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 license = "BSD-2-Clause"
 repository = "https://github.com/sebschmi/biopath"
-version = "0.1.1"
+version = "0.1.2"
 
 edition = "2024"
 
