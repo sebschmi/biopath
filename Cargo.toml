@@ -17,9 +17,9 @@ anyhow = "1.0.102"
 indicatif = "0.18.4"
 
 # Data structures
-spqr-shortest-path-index = { version = "1.0.0", features = ["binary-io"] }
-bidirected-adjacency-array = "0.3.1"
-spqr-tree = { version = "1.0.0" }
+spqr-shortest-path-index = { version = "1.0.1", features = ["binary-io"] }
+bidirected-adjacency-array = "1.0.0"
+spqr-tree = { version = "1.0.3" }
 
 # Serde
 serde = { version = "1.0.228", features = ["derive"] }
