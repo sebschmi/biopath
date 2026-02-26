@@ -132,6 +132,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -262,6 +268,15 @@ name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
+]
 
 [[package]]
 name = "hashbrown"
@@ -527,9 +542,9 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spqr-shortest-path-index"
-version = "0.2.3"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabada8c85ae1cb9cb49d819e0a7c78255198d0b396eec5e55706fcee8a7d1c3"
+checksum = "7dfdb8770f2561d8789c4d75f4739ffcd568696f8438381f2d739728ec36cba0"
 dependencies = [
  "bidirected-adjacency-array",
  "binary-heap-plus",
@@ -543,11 +558,13 @@ dependencies = [
 
 [[package]]
 name = "spqr-tree"
-version = "0.4.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c117359bdc06dcb2141cf697bb491cb11295e67f562367e8e51239287219a59"
+checksum = "e44bee5bb63b2691a3cffb94bcde45ea83536ca94662f65fa34dc46668bd51e5"
 dependencies = [
  "bidirected-adjacency-array",
+ "fxhash",
+ "log",
  "num-traits",
  "optional-numeric-index",
  "smallvec",
