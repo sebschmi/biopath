@@ -396,9 +396,9 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "optional-numeric-index"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6664336731f2d5b547a7349762c8b3cb2125d7624275f41d23947511974c1760"
+checksum = "f67835365c3ab113b1e9f380438a26b8784c72257d59c420201635370a520250"
 dependencies = [
  "num-traits",
 ]
@@ -534,9 +534,9 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spqr-shortest-path-index"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13b795728bede754ca7cd686fcaa04d1a14ef61e8a586e8d597d495be373587"
+checksum = "f12b44387f7df308ef0e63183d3147f4da51de6415e22210b3bef31e35068f47"
 dependencies = [
  "bidirected-adjacency-array",
  "binary-heap-plus",
@@ -550,9 +550,9 @@ dependencies = [
 
 [[package]]
 name = "spqr-tree"
-version = "2.0.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "686eb46d3a259e8c39dbe7c9392686693b3f3c3aa2d82dc16d5f6469bb7f1447"
+checksum = "fc20137e5f5143c68f4da4f4b8810ea635b29b8cb5695162113be908ac68b78b"
 dependencies = [
  "bidirected-adjacency-array",
  "log",
