@@ -534,9 +534,9 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spqr-shortest-path-index"
-version = "1.2.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12b44387f7df308ef0e63183d3147f4da51de6415e22210b3bef31e35068f47"
+checksum = "55d4ab08d2ca936658fe290185d1cfb7ad253ee16e6be9c6ee392ec53780a4a2"
 dependencies = [
  "bidirected-adjacency-array",
  "binary-heap-plus",
@@ -550,9 +550,9 @@ dependencies = [
 
 [[package]]
 name = "spqr-tree"
-version = "3.0.0"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc20137e5f5143c68f4da4f4b8810ea635b29b8cb5695162113be908ac68b78b"
+checksum = "a489609252d5323eb30773d5b4ce889842a6c4263a8448ed6846bd2466384c41"
 dependencies = [
  "bidirected-adjacency-array",
  "log",
