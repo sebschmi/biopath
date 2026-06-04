@@ -7,3 +7,4 @@
 *.query_out
 *.query_out_no_index
 *.log
+*.gfa
