@@ -32,4 +32,4 @@ flate2 = "1.1.9"
 
 [profile.release]
 lto = true
-debug = true
+debug = 1
