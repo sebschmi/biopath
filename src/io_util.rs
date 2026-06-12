@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 
 /// Opens the file and pipes it through a decompressor if the file extension indicates that it is compressed.
 pub fn read_optionally_compressed_file<T>(
@@ -20,8 +20,13 @@ pub fn open_optionally_compressed_file(path: impl AsRef<Path>) -> anyhow::Result
     let extension = path.extension().and_then(|s| s.to_str());
     let file = File::open(path).with_context(|| format!("Failed to open file {:?}", path))?;
 
-    if extension == Some("gz") || extension == Some("gzip") {
-        let decoder = flate2::read::GzDecoder::new(file);
+    if extension == Some("gz")
+        || extension == Some("gzip")
+        || extension == Some("bgzf")
+        || extension == Some("bgz")
+        || extension == Some("bgzip")
+    {
+        let decoder = flate2::read::MultiGzDecoder::new(file);
         Ok(Box::new(decoder))
     } else {
         Ok(Box::new(file))
@@ -40,6 +45,8 @@ pub fn write_optionally_compressed_file<T>(
         let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
         let mut buf_writer = BufWriter::new(encoder);
         writer(&mut buf_writer)
+    } else if extension == Some("bgzf") || extension == Some("bgz") || extension == Some("bgzip") {
+        bail!("Blocked gzip compression is not supported for output files");
     } else {
         writer(&mut BufWriter::new(file))
     }
