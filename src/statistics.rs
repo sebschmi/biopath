@@ -8,7 +8,7 @@ use bidirected_adjacency_array::{
 };
 use clap::Parser;
 use itertools::Itertools;
-use log::{LevelFilter, info};
+use log::{LevelFilter, debug, info};
 use serde::{Deserialize, Serialize};
 use spqr_tree::decomposition::SPQRDecomposition;
 
@@ -79,6 +79,12 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
             .with_context(|| format!("Failed to parse GFA file {:?}", cli.graph_gfa_in))
     })
     .with_context(|| format!("Failed to read GFA file: {:?}", cli.graph_gfa_in))?;
+
+    debug!(
+        "Graph has {} nodes and {} edges",
+        graph.node_count(),
+        graph.edge_count(),
+    );
 
     info!("Reading SPQR decomposition from file {:?}", cli.spqr_in);
     let spqr_decomposition = read_optionally_compressed_file(&cli.spqr_in, |reader| {
