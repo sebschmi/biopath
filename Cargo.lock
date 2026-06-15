@@ -586,9 +586,9 @@ dependencies = [
 
 [[package]]
 name = "spqr-tree"
-version = "4.0.3"
+version = "4.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53925ed398f93461a557e35bcf064a34704c35adb4fb17483b161704cf11c005"
+checksum = "b66c4fd1960cd09f89386e9531b3a5ab1875686d5b1cc9fa0e2acf04affd6d3d"
 dependencies = [
  "bidirected-adjacency-array",
  "log",

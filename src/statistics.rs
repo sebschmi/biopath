@@ -54,6 +54,7 @@ struct Statistics<IndexType> {
     component_node_counts: Vec<IndexType>,
     block_node_counts: Vec<IndexType>,
     spqr_node_node_counts: Vec<IndexType>,
+    spqr_node_densities_sorted_by_node_count: Vec<f32>,
 
     component_block_counts: Vec<IndexType>,
     block_spqr_node_counts: Vec<IndexType>,
@@ -119,6 +120,13 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
             .map(|spqr_node| spqr_node.1.node_count())
             .sorted()
             .rev()
+            .collect(),
+        spqr_node_densities_sorted_by_node_count: spqr_decomposition
+            .iter_spqr_nodes()
+            .map(|(_, spqr_node)| (spqr_node.node_count(), spqr_node.edge_count()))
+            .sorted()
+            .rev()
+            .map(|(node_count, edge_count)| edge_count as f32 / node_count as f32)
             .collect(),
 
         component_block_counts: spqr_decomposition
