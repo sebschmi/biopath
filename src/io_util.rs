@@ -51,3 +51,58 @@ pub fn write_optionally_compressed_file<T>(
         writer(&mut BufWriter::new(file))
     }
 }
+
+pub fn write_human_readable_time(seconds: f64, mut writer: impl Write) -> std::io::Result<()> {
+    if seconds < 1e-8 {
+        write!(writer, "{:.2}ns", seconds * 1e9)
+    } else if seconds < 1e-7 {
+        write!(writer, "{:.1}ns", seconds * 1e9)
+    } else if seconds < 1e-6 {
+        write!(writer, "{:.0}ns", seconds * 1e9)
+    } else if seconds < 1e-5 {
+        write!(writer, "{:.2}μs", seconds * 1e6)
+    } else if seconds < 1e-4 {
+        write!(writer, "{:.1}μs", seconds * 1e6)
+    } else if seconds < 1e-3 {
+        write!(writer, "{:.0}μs", seconds * 1e6)
+    } else if seconds < 1e-2 {
+        write!(writer, "{:.2}ms", seconds * 1e3)
+    } else if seconds < 1e-1 {
+        write!(writer, "{:.1}ms", seconds * 1e3)
+    } else if seconds < 1e0 {
+        write!(writer, "{:.0}ms", seconds * 1e3)
+    } else if seconds < 1e1 {
+        write!(writer, "{:.2}s", seconds)
+    } else if seconds < 60.0 {
+        write!(writer, "{:.1}s", seconds)
+    } else if seconds < 3600.0 {
+        write!(
+            writer,
+            "{:.0}m {:.0}s",
+            (seconds / 60.0).floor(),
+            seconds % 60.0
+        )
+    } else if seconds < 86400.0 {
+        write!(
+            writer,
+            "{:.0}h {:.0}m",
+            (seconds / 3600.0).floor(),
+            (seconds / 60.0).round() % 60.0,
+        )
+    } else if seconds < 86400.0 * 100.0 {
+        write!(
+            writer,
+            "{:.0}d {:.0}h",
+            (seconds / 86400.0).floor(),
+            (seconds / 3600.0).round() % 24.0,
+        )
+    } else {
+        write!(writer, "{:.0}d", seconds / 86400.0)
+    }
+}
+
+pub fn write_human_readable_time_to_string(seconds: f64) -> String {
+    let mut buf = Vec::new();
+    write_human_readable_time(seconds, &mut buf).unwrap();
+    String::from_utf8(buf).unwrap()
+}
