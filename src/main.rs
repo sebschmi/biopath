@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+mod generate_random_queries;
 mod index;
 mod io_util;
 mod query;
@@ -16,6 +17,7 @@ enum CliCommand {
     Index(index::Cli),
     Query(query::Cli),
     Statistics(statistics::Cli),
+    GenerateRandomQueries(generate_random_queries::Cli),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -26,6 +28,7 @@ fn main() -> anyhow::Result<()> {
         CliCommand::Index(cli) => index::run(cli)?,
         CliCommand::Query(cli) => query::run(cli)?,
         CliCommand::Statistics(cli) => statistics::run(cli)?,
+        CliCommand::GenerateRandomQueries(cli) => generate_random_queries::run(cli)?,
     }
 
     Ok(())
@@ -36,6 +39,7 @@ fn initialise_logging(cli: &Cli) {
         CliCommand::Index(cli) => cli.log_level,
         CliCommand::Query(cli) => cli.log_level,
         CliCommand::Statistics(cli) => cli.log_level,
+        CliCommand::GenerateRandomQueries(cli) => cli.log_level,
     };
 
     use simplelog::*;
