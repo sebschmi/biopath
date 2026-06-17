@@ -1,16 +1,22 @@
-use std::{fs::File, io::Write, path::PathBuf, time::Instant};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use bidirected_adjacency_array::{
     graph::BidirectedAdjacencyArray,
-    index::GraphIndexInteger,
-    io::gfa1::{PlainGfaEdgeData, PlainGfaNodeData},
+    index::{DirectedNodeIndex, GraphIndexInteger},
+    io::gfa1::{GfaNodeData, PlainGfaEdgeData, PlainGfaNodeData},
 };
 use clap::Parser;
+use indicatif::ProgressBar;
 use log::{LevelFilter, info};
-use rand::{SeedableRng, rngs::SmallRng};
+use rand::{Rng, RngExt, SeedableRng, rngs::SmallRng, seq::IteratorRandom};
+use spqr_shortest_path_index::location::{GfaLocation, GfaNodeOffset};
+use spqr_tree::graph::StaticGraph;
 
-use crate::io_util::{read_optionally_compressed_file, write_optionally_compressed_file};
+use crate::{
+    io_util::{read_optionally_compressed_file, write_optionally_compressed_file},
+    query_file::{Query, write_query_file},
+};
 
 #[derive(Parser)]
 pub struct Cli {
@@ -71,6 +77,48 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
     );
 
     let mut rng = SmallRng::seed_from_u64(cli.random_seed);
+    let mut queries = Vec::new();
+    let progress_bar =
+        ProgressBar::new(cli.amount.try_into().unwrap()).with_message("Generating queries");
+
+    for _ in 0..cli.amount {
+        let source_location = generate_random_location(&graph, &mut rng)?;
+        let target_location = generate_random_location(&graph, &mut rng)?;
+        let query = Query::new(source_location, vec![target_location]);
+        queries.push(query);
+        progress_bar.inc(1);
+    }
+
+    progress_bar.finish_and_clear();
+    info!("Generated {} random queries", queries.len());
+
+    info!("Writing queries to file {:?}", cli.query_out);
+    write_optionally_compressed_file(&cli.query_out, |writer| {
+        write_query_file(writer, &queries, |node_index| {
+            Some(graph.node_name(node_index))
+        })
+    })
+    .with_context(|| format!("Failed to write query file: {:?}", cli.query_out))?;
+
+    info!("Finished writing query file");
 
     Ok(())
+}
+
+fn generate_random_location<IndexType: GraphIndexInteger, NodeData: GfaNodeData, EdgeData>(
+    graph: &BidirectedAdjacencyArray<IndexType, NodeData, EdgeData>,
+    rng: &mut impl Rng,
+) -> anyhow::Result<GfaLocation<IndexType>> {
+    let bidirected_node = graph.node_indices().choose(rng).unwrap();
+    let directed_node = DirectedNodeIndex::from_bidirected(bidirected_node, rng.random_bool(0.5));
+    let location = GfaLocation::new(
+        directed_node,
+        GfaNodeOffset::from_usize(
+            (0..graph.node_data(bidirected_node).sequence().len())
+                .choose(rng)
+                .unwrap(),
+        ),
+    );
+
+    Ok(location)
 }

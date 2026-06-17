@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     io::{BufRead, Write},
     path::Path,
     str::FromStr,
@@ -124,10 +125,10 @@ where
     Ok(queries)
 }
 
-pub fn write_query_file<IndexType: GraphIndexInteger>(
+pub fn write_query_file<'index, IndexType: GraphIndexInteger>(
     mut writer: impl Write,
     queries: &[Query<IndexType>],
-    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<String>,
+    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<Cow<'index, str>>,
 ) -> anyhow::Result<()> {
     for query in queries {
         write_location(&mut writer, &query.source, &node_to_name_index)
@@ -145,10 +146,10 @@ pub fn write_query_file<IndexType: GraphIndexInteger>(
     Ok(())
 }
 
-fn write_location<IndexType: GraphIndexInteger>(
+fn write_location<'index, IndexType: GraphIndexInteger>(
     mut writer: impl Write,
     location: &GfaLocation<IndexType>,
-    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<String>,
+    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<Cow<'index, str>>,
 ) -> anyhow::Result<()> {
     let node = location.node().into_bidirected();
     let node_name = node_to_name_index(node)
