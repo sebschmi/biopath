@@ -123,7 +123,7 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
             .collect(),
         spqr_node_densities_sorted_by_node_count: spqr_decomposition
             .iter_spqr_nodes()
-            .map(|(_, spqr_node)| (spqr_node.node_count(), spqr_node.edge_count()))
+            .map(|(_, spqr_node)| (spqr_node.node_count(), spqr_node.skeleton_edge_count()))
             .sorted()
             .rev()
             .map(|(node_count, edge_count)| edge_count as f32 / node_count as f32)
