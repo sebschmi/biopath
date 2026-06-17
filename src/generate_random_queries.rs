@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use bidirected_adjacency_array::{
     graph::BidirectedAdjacencyArray,
-    index::{DirectedNodeIndex, GraphIndexInteger},
+    index::{DirectedNodeIndex, GraphIndexInteger, NodeIndex},
     io::gfa1::{GfaNodeData, PlainGfaEdgeData, PlainGfaNodeData},
 };
 use clap::Parser;
@@ -109,7 +109,7 @@ fn generate_random_location<IndexType: GraphIndexInteger, NodeData: GfaNodeData,
     graph: &BidirectedAdjacencyArray<IndexType, NodeData, EdgeData>,
     rng: &mut impl Rng,
 ) -> anyhow::Result<GfaLocation<IndexType>> {
-    let bidirected_node = graph.node_indices().choose(rng).unwrap();
+    let bidirected_node = NodeIndex::from_usize((0..graph.node_count()).choose(rng).unwrap());
     let directed_node = DirectedNodeIndex::from_bidirected(bidirected_node, rng.random_bool(0.5));
     let location = GfaLocation::new(
         directed_node,
