@@ -1,4 +1,8 @@
-use std::{io::BufRead, path::Path, str::FromStr};
+use std::{
+    io::{BufRead, Write},
+    path::Path,
+    str::FromStr,
+};
 
 use anyhow::{Context, anyhow};
 use bidirected_adjacency_array::index::{DirectedNodeIndex, GraphIndexInteger, NodeIndex};
@@ -40,10 +44,10 @@ impl<IndexType> Query<IndexType> {
     }
 }
 
-pub fn parse_query_file<IndexType: GraphIndexInteger + FromStr>(
+pub fn read_query_file<IndexType: GraphIndexInteger + FromStr>(
     reader: impl BufRead,
     file_name: impl AsRef<Path>,
-    node_name_index: impl Fn(&str) -> Option<NodeIndex<IndexType>>,
+    name_to_node_index: impl Fn(&str) -> Option<NodeIndex<IndexType>>,
 ) -> anyhow::Result<Vec<Query<IndexType>>>
 where
     <IndexType as FromStr>::Err: std::error::Error + Send + Sync + 'static,
@@ -93,7 +97,7 @@ where
 
             let location = GfaLocation::new(
                 DirectedNodeIndex::from_bidirected(
-                    node_name_index(node_name)
+                    name_to_node_index(node_name)
                         .ok_or_else(|| anyhow!("Node name {node_name:?} not found in index"))?,
                     forward,
                 ),
@@ -118,4 +122,42 @@ where
     }
 
     Ok(queries)
+}
+
+pub fn write_query_file<IndexType: GraphIndexInteger>(
+    mut writer: impl Write,
+    queries: &[Query<IndexType>],
+    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<String>,
+) -> anyhow::Result<()> {
+    for query in queries {
+        write_location(&mut writer, &query.source, &node_to_name_index)
+            .with_context(|| "Error writing query source location".to_string())?;
+
+        for target in &query.targets {
+            write!(writer, "\t").with_context(|| "Error writing query".to_string())?;
+            write_location(&mut writer, target, &node_to_name_index)
+                .with_context(|| "Error writing query target location".to_string())?;
+        }
+
+        writeln!(writer).with_context(|| "Error writing query".to_string())?;
+    }
+
+    Ok(())
+}
+
+fn write_location<IndexType: GraphIndexInteger>(
+    mut writer: impl Write,
+    location: &GfaLocation<IndexType>,
+    node_to_name_index: impl Fn(NodeIndex<IndexType>) -> Option<String>,
+) -> anyhow::Result<()> {
+    let node = location.node().into_bidirected();
+    let node_name = node_to_name_index(node)
+        .ok_or_else(|| anyhow!("Node index {node:?} not found in index"))?;
+    let orientation = if location.node().is_forward() {
+        "+"
+    } else {
+        "-"
+    };
+    let offset = location.offset();
+    write!(writer, "{}\t{}\t{}", node_name, orientation, offset).map_err(Into::into)
 }

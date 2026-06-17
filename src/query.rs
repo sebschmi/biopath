@@ -29,7 +29,7 @@ use crate::{
         open_optionally_compressed_file, read_optionally_compressed_file,
         write_human_readable_time_to_string, write_optionally_compressed_file,
     },
-    query_file::parse_query_file,
+    query_file::read_query_file,
 };
 
 #[derive(Parser)]
@@ -172,7 +172,7 @@ where
     let start_timestamp = Instant::now();
     info!("Reading queries from file {:?}", cli.query_in);
     let mut queries = read_optionally_compressed_file(&cli.query_in, |reader| {
-        parse_query_file(reader, &cli.query_in, |node_name| {
+        read_query_file(reader, &cli.query_in, |node_name| {
             node_name_index.get(node_name).copied()
         })
     })
@@ -347,7 +347,7 @@ where
     let start_timestamp = Instant::now();
     info!("Reading queries from file {:?}", cli.query_in);
     let mut queries = read_optionally_compressed_file(&cli.query_in, |reader| {
-        parse_query_file(reader, &cli.query_in, |node_name| {
+        read_query_file(reader, &cli.query_in, |node_name| {
             node_name_index.get(node_name).copied()
         })
     })

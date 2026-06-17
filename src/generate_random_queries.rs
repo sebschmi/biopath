@@ -8,6 +8,7 @@ use bidirected_adjacency_array::{
 };
 use clap::Parser;
 use log::{LevelFilter, info};
+use rand::{SeedableRng, rngs::SmallRng};
 
 use crate::io_util::{read_optionally_compressed_file, write_optionally_compressed_file};
 
@@ -29,8 +30,12 @@ pub struct Cli {
     query_out: PathBuf,
 
     /// The number of random queries to generate.
-    #[clap(long)]
+    #[clap(long, default_value = "1000")]
     amount: usize,
+
+    /// The seed for the random generator.
+    #[clap(long, default_value = "0")]
+    random_seed: u64,
 
     /// The integer size to use in all data structures.
     /// Supported values are 8, 16, 32, and 64.
@@ -65,7 +70,7 @@ fn run_with_word_size<IndexType: GraphIndexInteger>(cli: Cli) -> anyhow::Result<
         graph.edge_count(),
     );
 
-    todo!("Create module for reading and writing query files.");
+    let mut rng = SmallRng::seed_from_u64(cli.random_seed);
 
     Ok(())
 }
