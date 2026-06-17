@@ -10,26 +10,26 @@ use std::{
 use anyhow::Context;
 use bidirected_adjacency_array::{
     graph::BidirectedAdjacencyArray,
-    index::{DirectedNodeIndex, GraphIndexInteger},
+    index::GraphIndexInteger,
     io::gfa1::{PlainGfaEdgeData, PlainGfaNodeData},
 };
 use clap::Parser;
 use indicatif::ProgressBar;
-use itertools::Itertools;
 use log::{LevelFilter, info, warn};
 use serde::{Deserialize, Serialize};
 use spqr_shortest_path_index::{
     dijkstra::GfaDijkstra,
-    location::{GfaLocation, GfaNodeOffset},
     location_index::{multi::MultiGfaLocationIndex, single::SingleGfaLocationIndex},
-    path::OptionalGfaPathLength,
     spqr_decomposition_overlay::{SPQRDecompositionOverlay, dijkstra::OverlayDijkstra},
 };
 use spqr_tree::{decomposition::SPQRDecomposition, graph::StaticGraph};
 
-use crate::io_util::{
-    open_optionally_compressed_file, read_optionally_compressed_file,
-    write_human_readable_time_to_string, write_optionally_compressed_file,
+use crate::{
+    io_util::{
+        open_optionally_compressed_file, read_optionally_compressed_file,
+        write_human_readable_time_to_string, write_optionally_compressed_file,
+    },
+    query_file::parse_query_file,
 };
 
 #[derive(Parser)]
@@ -64,12 +64,6 @@ pub struct Cli {
     /// If specified, write timing information to the given file in JSON format.
     #[clap(long)]
     timing_out: Option<PathBuf>,
-}
-
-struct Query<IndexType> {
-    source: GfaLocation<IndexType>,
-    targets: Vec<GfaLocation<IndexType>>,
-    distances: Vec<OptionalGfaPathLength<IndexType>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -178,63 +172,9 @@ where
     let start_timestamp = Instant::now();
     info!("Reading queries from file {:?}", cli.query_in);
     let mut queries = read_optionally_compressed_file(&cli.query_in, |reader| {
-        let mut queries = Vec::new();
-        for line in reader.lines() {
-            let line = line.with_context(|| {
-                format!("Failed to read line from query file: {:?}", cli.query_in)
-            })?;
-
-            let mut source = None;
-            let mut targets = Vec::new();
-
-            let columns = line.trim().split('\t').collect_vec();
-            for column in columns.chunks(3) {
-                if column.len() != 3 {
-                    anyhow::bail!(
-                        "Invalid query line in file {:?}: expected a number of columns that is divisible by 3, got {}",
-                        cli.query_in,
-                        columns.len()
-                    );
-                }
-
-                let node_name = column[0];
-                let forward = match column[1] {
-                    "+" => true,
-                    "-" => false,
-                    _ => anyhow::bail!(
-                        "Invalid query line in file {:?}: expected orientation to be either '+' or '-', got '{}'",
-                        cli.query_in,
-                        column[1]
-                    ),
-                };
-                let offset = column[2].parse::<IndexType>().map(GfaNodeOffset::from_raw).with_context(|| {
-                    format!(
-                        "Invalid query line in file {:?}: failed to parse offset '{}'",
-                        cli.query_in,
-                        column[2],
-                    )
-                })?;
-
-                let location = GfaLocation::new(DirectedNodeIndex::from_bidirected(node_name_index[node_name], forward), offset);
-                if source.is_none() {
-                    source = Some(location);
-                } else {
-                    targets.push(location);
-                }
-            }
-
-            if source.is_none() || targets.is_empty() {
-                anyhow::bail!(
-                    "Invalid query line in file {:?}: expected at least one source and one target location, got line '{}'",
-                    cli.query_in,
-                    line
-                );
-            }
-
-            queries.push(Query { source: source.unwrap(), targets, distances: Vec::new() });
-        }
-
-        Ok(queries)
+        parse_query_file(reader, &cli.query_in, |node_name| {
+            node_name_index.get(node_name).copied()
+        })
     })
     .with_context(|| format!("Failed to read query file: {:?}", cli.query_in))?;
     let query_reading_time = start_timestamp.elapsed();
@@ -252,24 +192,26 @@ where
 
     for query in &mut queries {
         let single_query_start_timestamp = Instant::now();
-        let paths = if query.targets.len() == 1 {
+        let paths = if query.targets().len() == 1 {
             dijkstra.shortest_paths(
-                query.source,
-                &SingleGfaLocationIndex::new_target(query.targets[0]),
+                *query.source(),
+                &SingleGfaLocationIndex::new_target(query.targets()[0]),
             )
         } else {
             dijkstra.shortest_paths(
-                query.source,
-                &MultiGfaLocationIndex::new_targets(&graph, query.targets.iter().copied()),
+                *query.source(),
+                &MultiGfaLocationIndex::new_targets(&graph, query.targets().iter().copied()),
             )
         };
         single_query_execution_times.push(single_query_start_timestamp.elapsed());
 
-        query.distances = query
-            .targets
-            .iter()
-            .map(|&target| paths.get(&target).map(|path| path.length()).into())
-            .collect();
+        query.set_distances(
+            query
+                .targets()
+                .iter()
+                .map(|&target| paths.get(&target).map(|path| path.length()).into())
+                .collect(),
+        );
 
         progress_bar.inc(1);
     }
@@ -291,16 +233,16 @@ where
             write!(
                 writer,
                 "{}\t{}\t{}",
-                graph.node_name(query.source.node().into_bidirected()),
-                query.source.offset(),
-                if query.source.node().is_forward() {
+                graph.node_name(query.source().node().into_bidirected()),
+                query.source().offset(),
+                if query.source().node().is_forward() {
                     "+"
                 } else {
                     "-"
                 },
             )?;
 
-            for (target, distance) in query.targets.iter().zip(&query.distances) {
+            for (target, distance) in query.targets().iter().zip(query.distances()) {
                 write!(
                     writer,
                     "\t{}\t{}\t{}\t{}",
@@ -405,63 +347,9 @@ where
     let start_timestamp = Instant::now();
     info!("Reading queries from file {:?}", cli.query_in);
     let mut queries = read_optionally_compressed_file(&cli.query_in, |reader| {
-        let mut queries = Vec::new();
-        for line in reader.lines() {
-            let line = line.with_context(|| {
-                format!("Failed to read line from query file: {:?}", cli.query_in)
-            })?;
-
-            let mut source = None;
-            let mut targets = Vec::new();
-
-            let columns = line.trim().split('\t').collect_vec();
-            for column in columns.chunks(3) {
-                if column.len() != 3 {
-                    anyhow::bail!(
-                        "Invalid query line in file {:?}: expected a number of columns that is divisible by 3, got {}",
-                        cli.query_in,
-                        columns.len()
-                    );
-                }
-
-                let node_name = column[0];
-                let forward = match column[1] {
-                    "+" => true,
-                    "-" => false,
-                    _ => anyhow::bail!(
-                        "Invalid query line in file {:?}: expected orientation to be either '+' or '-', got '{}'",
-                        cli.query_in,
-                        column[1]
-                    ),
-                };
-                let offset = column[2].parse::<IndexType>().map(GfaNodeOffset::from_raw).with_context(|| {
-                    format!(
-                        "Invalid query line in file {:?}: failed to parse offset '{}'",
-                        cli.query_in,
-                        column[2],
-                    )
-                })?;
-
-                let location = GfaLocation::new(DirectedNodeIndex::from_bidirected(node_name_index[node_name], forward), offset);
-                if source.is_none() {
-                    source = Some(location);
-                } else {
-                    targets.push(location);
-                }
-            }
-
-            if source.is_none() || targets.is_empty() {
-                anyhow::bail!(
-                    "Invalid query line in file {:?}: expected at least one source and one target location, got line '{}'",
-                    cli.query_in,
-                    line
-                );
-            }
-
-            queries.push(Query { source: source.unwrap(), targets, distances: Vec::new() });
-        }
-
-        Ok(queries)
+        parse_query_file(reader, &cli.query_in, |node_name| {
+            node_name_index.get(node_name).copied()
+        })
     })
     .with_context(|| format!("Failed to read query file: {:?}", cli.query_in))?;
     let query_reading_time = start_timestamp.elapsed();
@@ -479,24 +367,26 @@ where
 
     for query in &mut queries {
         let single_query_start_timestamp = Instant::now();
-        let paths = if query.targets.len() == 1 {
+        let paths = if query.targets().len() == 1 {
             dijkstra.shortest_paths(
-                query.source,
-                &SingleGfaLocationIndex::new_target(query.targets[0]),
+                *query.source(),
+                &SingleGfaLocationIndex::new_target(*query.targets().first().unwrap()),
             )
         } else {
             dijkstra.shortest_paths(
-                query.source,
-                &MultiGfaLocationIndex::new_targets(&graph, query.targets.iter().copied()),
+                *query.source(),
+                &MultiGfaLocationIndex::new_targets(&graph, query.targets().iter().copied()),
             )
         };
         single_query_execution_times.push(single_query_start_timestamp.elapsed());
 
-        query.distances = query
-            .targets
-            .iter()
-            .map(|&target| paths.get(&target).map(|path| path.length()).into())
-            .collect();
+        query.set_distances(
+            query
+                .targets()
+                .iter()
+                .map(|&target| paths.get(&target).map(|path| path.length()).into())
+                .collect(),
+        );
 
         progress_bar.inc(1);
     }
@@ -518,16 +408,16 @@ where
             write!(
                 writer,
                 "{}\t{}\t{}",
-                graph.node_name(query.source.node().into_bidirected()),
-                query.source.offset(),
-                if query.source.node().is_forward() {
+                graph.node_name(query.source().node().into_bidirected()),
+                query.source().offset(),
+                if query.source().node().is_forward() {
                     "+"
                 } else {
                     "-"
                 },
             )?;
 
-            for (target, distance) in query.targets.iter().zip(&query.distances) {
+            for (target, distance) in query.targets().iter().zip(query.distances()) {
                 write!(
                     writer,
                     "\t{}\t{}\t{}\t{}",

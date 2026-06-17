@@ -4,6 +4,7 @@ mod generate_random_queries;
 mod index;
 mod io_util;
 mod query;
+mod query_file;
 mod statistics;
 
 #[derive(Parser)]
